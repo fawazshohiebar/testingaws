@@ -10,7 +10,7 @@ header_date:
     enabled: true
   -
     id: mipn5rwn
-    event_place: 'يسنتبسي سيشسي'
+    event_place: تايلاند
     event_start: '2025-12-17'
     event_end: '2025-12-20'
     type: new_set
@@ -41,11 +41,6 @@ social_media:
     id: mdwxw06k
     platform: tiktok
     social_media_link: 'https://www.tiktok.com/@adihex_official'
-countdown_date_picker: '2025-08-03 12:28:50'
-location: 'مركز أدنيك أبوظبي'
-location_link: 'https://maps.app.goo.gl/QfKJxAySQC8fabao9?g_st=iw'
-date: '29 أغسطس - 6 سبتمبر'
-time: '11 صباحاً - 10 مساءً'
 breadcrumb_text:
   -
     type: paragraph
@@ -76,10 +71,4 @@ logos:
     image: layer_1-(1).svg
     url: 'https://adnecgroup.ae'
     type: logo
-    enabled: true
-footer_sales:
-  -
-    id: mipqj01z
-    sales_text: '24 November 2026 | 09:30 – 18:00'
-    type: sales_set
     enabled: true
