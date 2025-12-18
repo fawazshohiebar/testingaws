@@ -2,7 +2,7 @@ name: 'Reem Hannoun'
 roles:
   - editor
 id: 7fed8dcc-a53f-489c-b670-4be3392dc465
-password_hash: $2y$12$pbRQ1mkTYpDkOXtVxpGt/e8XC8zojrEAs5FCYHL30d7ZvCyCeOe9a
+password_hash: $2y$12$Wlwfko.ZbY2qxxGJF5mPAORdbTqSHEx2FfIM4gx6NaaJCUmr5QJza
 preferences:
   collections:
     sessions:
