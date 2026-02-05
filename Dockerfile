@@ -202,4 +202,6 @@ exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf\n\
 
 EXPOSE 80
 
+# Override the default entrypoint to ensure /start.sh runs
+ENTRYPOINT []
 CMD ["/start.sh"]
