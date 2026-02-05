@@ -105,7 +105,7 @@ http {\n\
     }\n\
 }' > /etc/nginx/nginx.conf
 
-# Create supervisor config for PHP-FPM, Nginx, and Horizon
+# Create supervisor config for PHP-FPM and Nginx (Horizon removed)
 RUN echo '[supervisord]\n\
 nodaemon=true\n\
 \n\
@@ -125,17 +125,7 @@ autorestart=true\n\
 stdout_logfile=/dev/stdout\n\
 stdout_logfile_maxbytes=0\n\
 stderr_logfile=/dev/stderr\n\
-stderr_logfile_maxbytes=0\n\
-\n\
-[program:horizon]\n\
-process_name=%(program_name)s\n\
-command=php /var/www/html/artisan horizon\n\
-autostart=true\n\
-autorestart=true\n\
-user=www-data\n\
-redirect_stderr=true\n\
-stdout_logfile=/var/www/html/storage/logs/horizon.log\n\
-stopwaitsecs=3600' > /etc/supervisor/conf.d/supervisord.conf
+stderr_logfile_maxbytes=0' > /etc/supervisor/conf.d/supervisord.conf
 
 # Optimize Laravel
 RUN php artisan config:cache || true \
