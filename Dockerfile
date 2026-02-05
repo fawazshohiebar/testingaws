@@ -260,6 +260,20 @@ mkdir -p /var/www/html/bootstrap/cache\n\
 chmod -R 0777 /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/cache\n\
 chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/cache\n\
 \n\
+# Laravel/Statamic maintenance (run after perms)\n\
+php artisan migrate --force || true\n\
+php artisan optimize:clear || true\n\
+php artisan optimize || true\n\
+php artisan statamic:stache:clear || true\n\
+php artisan statamic:stache:warm || true\n\
+\n\
+# Ensure problematic Statamic path exists and is writable\n\
+mkdir -p /var/www/html/cache/stache/indexes/entries/sessions/_indexes\n\
+chown -R www-data:www-data /var/www/html/cache /var/www/html/storage /var/www/html/bootstrap/cache\n\
+chmod -R 0777 /var/www/html/cache /var/www/html/storage /var/www/html/bootstrap/cache\n\
+find /var/www/html/cache -type d -exec chmod 0777 {} \\;\n\
+find /var/www/html/cache -type f -exec chmod 0666 {} \\;\n\
+\n\
 # Start services under supervisord\n\
 exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf\n' > /start.sh && chmod +x /start.sh
 
