@@ -85,14 +85,46 @@ http {\n\
     }\n\
 }' > /etc/nginx/nginx.conf
 
-# Create supervisor config
+# Create permission fix script
+RUN echo '#!/bin/sh\n\
+mkdir -p /var/www/html/cache/stache/indexes/global-variables\n\
+mkdir -p /var/www/html/cache/stache/indexes/collections\n\
+mkdir -p /var/www/html/cache/stache/indexes/entries\n\
+mkdir -p /var/www/html/cache/stache/indexes/terms\n\
+mkdir -p /var/www/html/cache/stache/indexes/assets\n\
+mkdir -p /var/www/html/cache/stache/indexes/navigations\n\
+mkdir -p /var/www/html/cache/stache/indexes/taxonomies\n\
+mkdir -p /var/www/html/storage/framework/cache/data\n\
+mkdir -p /var/www/html/storage/framework/sessions\n\
+mkdir -p /var/www/html/storage/framework/views\n\
+mkdir -p /var/www/html/storage/logs\n\
+mkdir -p /var/www/html/storage/statamic/stache-locks\n\
+mkdir -p /var/www/html/storage/statamic/file-locks\n\
+mkdir -p /var/www/html/bootstrap/cache\n\
+chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/cache\n\
+chmod -R 777 /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/cache\n\
+' > /fix-permissions.sh && chmod +x /fix-permissions.sh
+
+# Create supervisor config with permission fix as a startup event
 RUN echo '[supervisord]\n\
 nodaemon=true\n\
+\n\
+[program:fix-permissions]\n\
+command=/fix-permissions.sh\n\
+autostart=true\n\
+autorestart=false\n\
+startsecs=0\n\
+priority=1\n\
+stdout_logfile=/dev/stdout\n\
+stdout_logfile_maxbytes=0\n\
+stderr_logfile=/dev/stderr\n\
+stderr_logfile_maxbytes=0\n\
 \n\
 [program:php-fpm]\n\
 command=/usr/local/sbin/php-fpm\n\
 autostart=true\n\
 autorestart=true\n\
+priority=10\n\
 stdout_logfile=/dev/stdout\n\
 stdout_logfile_maxbytes=0\n\
 stderr_logfile=/dev/stderr\n\
@@ -102,6 +134,7 @@ stderr_logfile_maxbytes=0\n\
 command=/usr/sbin/nginx -g "daemon off;"\n\
 autostart=true\n\
 autorestart=true\n\
+priority=10\n\
 stdout_logfile=/dev/stdout\n\
 stdout_logfile_maxbytes=0\n\
 stderr_logfile=/dev/stderr\n\
@@ -135,6 +168,9 @@ COPY . .
 
 # Build frontend assets
 RUN npm install && npm run build
+
+# Publish Statamic CP assets (required for admin panel)
+RUN php artisan vendor:publish --tag=statamic-cp --force || true
 
 # Create necessary directories (including Statamic-specific)
 RUN mkdir -p storage/framework/cache \
