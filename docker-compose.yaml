@@ -16,8 +16,6 @@ services:
     build:
       context: .
       dockerfile: docker/php.Dockerfile
-    volumes:
-      - ./:/var/www/html
     command: ["/start.sh"]
     depends_on:
       - db
