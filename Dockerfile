@@ -1,6 +1,9 @@
-FROM php:8.3-fpm
+# ============================================
+# STAGE 1: Base image with system deps & PHP extensions (cached)
+# ============================================
+FROM php:8.3-fpm AS base
 
-# Install system dependencies
+# Install system dependencies (cached layer)
 RUN apt-get update && apt-get install -y \
     git \
     unzip \
@@ -14,7 +17,7 @@ RUN apt-get update && apt-get install -y \
     supervisor \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Install PHP extensions
+# Install PHP extensions (cached layer)
 RUN docker-php-ext-install \
     pdo \
     pdo_mysql \
@@ -25,10 +28,13 @@ RUN docker-php-ext-install \
     pcntl \
     bcmath
 
-# Install Redis extension
+# Install Redis extension (cached layer)
 RUN pecl install redis && docker-php-ext-enable redis
 
-# Configure PHP-FPM to run as www-data
+# Copy Composer from official image
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+# Configure PHP-FPM
 RUN echo 'user = www-data\n\
 group = www-data\n\
 listen = 127.0.0.1:9000\n\
@@ -37,34 +43,6 @@ pm.max_children = 20\n\
 pm.start_servers = 2\n\
 pm.min_spare_servers = 1\n\
 pm.max_spare_servers = 3' > /usr/local/etc/php-fpm.d/www.conf
-
-# Copy Composer from official image
-COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
-
-# Set working directory
-WORKDIR /var/www/html
-
-# Copy composer files
-COPY composer.json composer.lock ./
-
-# Install PHP dependencies (ignore platform reqs during build)
-RUN composer install --no-dev --prefer-dist --no-progress --no-interaction --optimize-autoloader --no-scripts
-
-# Copy application files
-COPY . .
-
-# Run composer scripts after copying all files
-RUN composer dump-autoload --optimize
-
-# Create necessary directories and set permissions
-RUN mkdir -p storage/framework/cache \
-    storage/framework/sessions \
-    storage/framework/views \
-    storage/logs \
-    bootstrap/cache \
-    && chown -R www-data:www-data /var/www/html \
-    && chmod -R 775 storage bootstrap/cache \
-    && chmod -R 775 /var/www/html/public
 
 # Create nginx config
 RUN echo 'user www-data;\n\
@@ -105,7 +83,7 @@ http {\n\
     }\n\
 }' > /etc/nginx/nginx.conf
 
-# Create supervisor config for PHP-FPM and Nginx (Horizon removed)
+# Create supervisor config
 RUN echo '[supervisord]\n\
 nodaemon=true\n\
 \n\
@@ -127,14 +105,49 @@ stdout_logfile_maxbytes=0\n\
 stderr_logfile=/dev/stderr\n\
 stderr_logfile_maxbytes=0' > /etc/supervisor/conf.d/supervisord.conf
 
-# Optimize Laravel
-RUN php artisan config:cache || true \
-    && php artisan route:cache || true \
-    && php artisan view:cache || true
+# ============================================
+# STAGE 2: Install dependencies (cached if composer.lock unchanged)
+# ============================================
+FROM base AS deps
 
+WORKDIR /var/www/html
+
+# Copy ONLY dependency files first (for caching)
+COPY composer.json composer.lock ./
+
+# Install PHP dependencies
+RUN composer install --no-dev --prefer-dist --no-progress --no-interaction --optimize-autoloader --no-scripts
+
+# ============================================
+# STAGE 3: Final image with app code
+# ============================================
+FROM base AS final
+
+WORKDIR /var/www/html
+
+# Copy installed dependencies from deps stage
+COPY --from=deps /var/www/html/vendor ./vendor
+
+# Copy application files
+COPY . .
+
+# Create necessary directories
+RUN mkdir -p storage/framework/cache \
+    storage/framework/sessions \
+    storage/framework/views \
+    storage/logs \
+    bootstrap/cache \
+    cache
+
+# Set permissions
 RUN chown -R www-data:www-data /var/www/html && \
     chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/cache && \
     chmod -R 755 /var/www/html/public
+
+# Optimize Laravel (skip if no .env, use || true)
+RUN php artisan config:cache || true && \
+    php artisan route:cache || true && \
+    php artisan view:cache || true
 
 EXPOSE 80
 
