@@ -15,6 +15,8 @@ RUN apt-get update && apt-get install -y \
     curl \
     nginx \
     supervisor \
+    nodejs \
+    npm \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install PHP extensions (cached layer)
@@ -131,6 +133,9 @@ COPY --from=deps /var/www/html/vendor ./vendor
 # Copy application files
 COPY . .
 
+# Build frontend assets
+RUN npm install && npm run build
+
 # Create necessary directories (including Statamic-specific)
 RUN mkdir -p storage/framework/cache \
     storage/framework/sessions \
@@ -148,6 +153,11 @@ RUN mkdir -p storage/framework/cache \
     cache/stache/indexes/navigations \
     cache/stache/indexes/taxonomies
 
+# Remove any cache files copied from local (they cause permission issues)
+RUN rm -rf /var/www/html/cache/* && \
+    rm -rf /var/www/html/storage/framework/cache/data/* && \
+    rm -rf /var/www/html/storage/logs/*
+
 # Set full permissions on all writable directories
 RUN chown -R www-data:www-data /var/www/html && \
     chmod -R 777 /var/www/html/storage && \
@@ -160,14 +170,33 @@ RUN php artisan config:cache || true && \
     php artisan route:cache || true && \
     php artisan view:cache || true
 
-# Final permissions fix (ensure everything is writable)
-RUN chown -R www-data:www-data /var/www/html && \
-    chmod -R 777 /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/cache
+# Final permissions fix (ensure everything is writable after artisan commands)
+RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/cache && \
+    chmod -R 777 /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/cache && \
+    find /var/www/html/cache -type d -exec chmod 777 {} \; && \
+    find /var/www/html/cache -type f -exec chmod 666 {} \;
 
-# Create startup script that fixes permissions at runtime
+# Create startup script that fixes permissions and creates directories at runtime
 RUN echo '#!/bin/sh\n\
+# Create all required cache directories\n\
+mkdir -p /var/www/html/cache/stache/indexes/global-variables\n\
+mkdir -p /var/www/html/cache/stache/indexes/collections\n\
+mkdir -p /var/www/html/cache/stache/indexes/entries\n\
+mkdir -p /var/www/html/cache/stache/indexes/terms\n\
+mkdir -p /var/www/html/cache/stache/indexes/assets\n\
+mkdir -p /var/www/html/cache/stache/indexes/navigations\n\
+mkdir -p /var/www/html/cache/stache/indexes/taxonomies\n\
+mkdir -p /var/www/html/storage/framework/cache/data\n\
+mkdir -p /var/www/html/storage/framework/sessions\n\
+mkdir -p /var/www/html/storage/framework/views\n\
+mkdir -p /var/www/html/storage/logs\n\
+mkdir -p /var/www/html/storage/statamic/stache-locks\n\
+mkdir -p /var/www/html/storage/statamic/file-locks\n\
+mkdir -p /var/www/html/bootstrap/cache\n\
+# Fix permissions\n\
 chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/cache 2>/dev/null || true\n\
 chmod -R 777 /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/cache 2>/dev/null || true\n\
+# Start services\n\
 exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf\n\
 ' > /start.sh && chmod +x /start.sh
 
