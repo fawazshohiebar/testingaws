@@ -90,6 +90,7 @@ RUN echo '#!/bin/sh\n\
 mkdir -p /var/www/html/cache/stache/indexes/global-variables\n\
 mkdir -p /var/www/html/cache/stache/indexes/collections\n\
 mkdir -p /var/www/html/cache/stache/indexes/entries\n\
+mkdir -p /var/www/html/cache/stache/indexes/entries/sessions\n\
 mkdir -p /var/www/html/cache/stache/indexes/terms\n\
 mkdir -p /var/www/html/cache/stache/indexes/assets\n\
 mkdir -p /var/www/html/cache/stache/indexes/navigations\n\
@@ -101,8 +102,8 @@ mkdir -p /var/www/html/storage/logs\n\
 mkdir -p /var/www/html/storage/statamic/stache-locks\n\
 mkdir -p /var/www/html/storage/statamic/file-locks\n\
 mkdir -p /var/www/html/bootstrap/cache\n\
-chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/cache\n\
 chmod -R 777 /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/cache\n\
+chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/cache\n\
 ' > /fix-permissions.sh && chmod +x /fix-permissions.sh
 
 # Create supervisor config with permission fix as a startup event
@@ -238,15 +239,13 @@ RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cac
 RUN echo '#!/bin/sh\n\
 set -e\n\
 \n\
-echo "=== Starting permission fix and directory creation ==="\n\
+echo "=== EMERGENCY PERMISSION FIX - Starting ==="\n\
 \n\
-# Remove any existing cache content that might have wrong permissions\n\
-rm -rf /var/www/html/cache/stache/indexes/* 2>/dev/null || true\n\
-\n\
-# Create all required cache directories\n\
+# Create ALL required cache directories (including sessions subdirectory)\n\
 mkdir -p /var/www/html/cache/stache/indexes/global-variables\n\
 mkdir -p /var/www/html/cache/stache/indexes/collections\n\
 mkdir -p /var/www/html/cache/stache/indexes/entries\n\
+mkdir -p /var/www/html/cache/stache/indexes/entries/sessions\n\
 mkdir -p /var/www/html/cache/stache/indexes/terms\n\
 mkdir -p /var/www/html/cache/stache/indexes/assets\n\
 mkdir -p /var/www/html/cache/stache/indexes/navigations\n\
@@ -260,22 +259,18 @@ mkdir -p /var/www/html/storage/statamic/stache-locks\n\
 mkdir -p /var/www/html/storage/statamic/file-locks\n\
 mkdir -p /var/www/html/bootstrap/cache\n\
 \n\
-# Set ownership (run as root, so this works)\n\
+# Nuclear option - make EVERYTHING in these directories writable by EVERYONE\n\
+chmod -R 777 /var/www/html/cache\n\
+chmod -R 777 /var/www/html/storage\n\
+chmod -R 777 /var/www/html/bootstrap/cache\n\
+\n\
+# Set ownership to www-data\n\
+chown -R www-data:www-data /var/www/html/cache\n\
 chown -R www-data:www-data /var/www/html/storage\n\
 chown -R www-data:www-data /var/www/html/bootstrap/cache\n\
-chown -R www-data:www-data /var/www/html/cache\n\
 \n\
-# Set permissions - make everything writable\n\
-chmod -R 0777 /var/www/html/storage\n\
-chmod -R 0777 /var/www/html/bootstrap/cache  \n\
-chmod -R 0777 /var/www/html/cache\n\
-\n\
-# Ensure all directories are executable/traversable\n\
-find /var/www/html/cache -type d -exec chmod 0777 {} \\;\n\
-find /var/www/html/storage -type d -exec chmod 0777 {} \\;\n\
-find /var/www/html/bootstrap/cache -type d -exec chmod 0777 {} \\;\n\
-\n\
-echo "=== Permissions fixed, starting services ==="\n\
+echo "=== PERMISSIONS SET TO 777 - Services starting ==="\n\
+ls -la /var/www/html/cache/stache/indexes/entries/ || echo "entries dir does not exist yet"\n\
 \n\
 # Start services\n\
 exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf\n\
