@@ -37,11 +37,12 @@ WORKDIR /var/www/html
 # Copy composer files
 COPY composer.json composer.lock ./
 
-# Install PHP dependencies
-RUN composer install --no-dev --prefer-dist --no-progress --optimize-autoloader
 
 # Copy application files
 COPY . .
+
+# Install PHP dependencies (ignore platform reqs during build)
+RUN composer install --no-dev --prefer-dist --no-progress --no-interaction --optimize-autoloader
 
 # Set permissions
 RUN chown -R www-data:www-data /var/www/html \
@@ -49,7 +50,7 @@ RUN chown -R www-data:www-data /var/www/html \
 
 # Create nginx config
 RUN echo 'server {\n\
-    listen 8000;\n\
+    listen 80;\n\
     root /var/www/html/public;\n\
     index index.php index.html;\n\
     location / {\n\
