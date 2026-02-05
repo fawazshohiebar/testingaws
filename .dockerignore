@@ -44,10 +44,10 @@ Thumbs.db
 /storage/framework/sessions/*
 /storage/framework/views/*
 /storage/logs/*
-/cache/
+# /cache/  # COMMENTED OUT - we need the cache directory structure in Docker
 
-# Statamic cache
-cache/
+# Statamic cache - COMMENTED OUT for Docker build to include directory structure
+# cache/
 storage/statamic/
 
 # Documentation

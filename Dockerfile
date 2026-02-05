@@ -166,13 +166,20 @@ COPY --from=deps /var/www/html/vendor ./vendor
 # Copy application files
 COPY . .
 
+# Ensure cache directory exists with proper structure (in case .dockerignore excluded it)
+RUN mkdir -p cache/stache/indexes/global-variables \
+    cache/stache/indexes/collections \
+    cache/stache/indexes/entries \
+    cache/stache/indexes/terms \
+    cache/stache/indexes/assets \
+    cache/stache/indexes/navigations \
+    cache/stache/indexes/taxonomies \
+    cache/lock
+
 # Build frontend assets
 RUN npm install && npm run build
 
-# Publish Statamic CP assets (required for admin panel)
-RUN php artisan vendor:publish --tag=statamic-cp --force || true
-
-# Create necessary directories (including Statamic-specific)
+# Create necessary directories (including Statamic-specific) BEFORE publishing
 RUN mkdir -p storage/framework/cache \
     storage/framework/sessions \
     storage/framework/views \
@@ -187,19 +194,34 @@ RUN mkdir -p storage/framework/cache \
     cache/stache/indexes/terms \
     cache/stache/indexes/assets \
     cache/stache/indexes/navigations \
-    cache/stache/indexes/taxonomies
+    cache/stache/indexes/taxonomies \
+    public/vendor/statamic/cp
+
+# Set ownership to www-data BEFORE any artisan commands
+RUN chown -R www-data:www-data /var/www/html && \
+    chmod -R 777 /var/www/html/storage && \
+    chmod -R 777 /var/www/html/bootstrap/cache && \
+    chmod -R 777 /var/www/html/cache && \
+    chmod -R 755 /var/www/html/public
+
+# Publish Statamic CP assets (required for admin panel) - run as www-data
+RUN su www-data -s /bin/sh -c "php artisan vendor:publish --tag=statamic-cp --force" || true
 
 # Remove any cache files copied from local (they cause permission issues)
 RUN rm -rf /var/www/html/cache/* && \
     rm -rf /var/www/html/storage/framework/cache/data/* && \
     rm -rf /var/www/html/storage/logs/*
 
-# Set full permissions on all writable directories
-RUN chown -R www-data:www-data /var/www/html && \
-    chmod -R 777 /var/www/html/storage && \
-    chmod -R 777 /var/www/html/bootstrap/cache && \
-    chmod -R 777 /var/www/html/cache && \
-    chmod -R 755 /var/www/html/public
+# Recreate directories and set permissions again after cleanup
+RUN mkdir -p cache/stache/indexes/global-variables \
+    cache/stache/indexes/collections \
+    cache/stache/indexes/entries \
+    cache/stache/indexes/terms \
+    cache/stache/indexes/assets \
+    cache/stache/indexes/navigations \
+    cache/stache/indexes/taxonomies && \
+    chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/cache && \
+    chmod -R 777 /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/cache
 
 # Optimize Laravel (skip if no .env, use || true)
 RUN php artisan config:cache || true && \
