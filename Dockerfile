@@ -142,6 +142,10 @@ RUN php artisan config:cache || true \
     && php artisan route:cache || true \
     && php artisan view:cache || true
 
+RUN chown -R www-data:www-data /var/www/html && \
+chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache && \
+chmod -R 755 /var/www/html/public
+
 EXPOSE 80
 
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
