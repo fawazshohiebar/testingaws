@@ -85,13 +85,11 @@ http {\n\
     }\n\
 }' > /etc/nginx/nginx.conf
 
-# Create permission fix script (includes Statamic entries/sessions path)
+# Create permission fix script
 RUN echo '#!/bin/sh\n\
-set -e\n\
 mkdir -p /var/www/html/cache/stache/indexes/global-variables\n\
 mkdir -p /var/www/html/cache/stache/indexes/collections\n\
 mkdir -p /var/www/html/cache/stache/indexes/entries\n\
-mkdir -p /var/www/html/cache/stache/indexes/entries/sessions\n\
 mkdir -p /var/www/html/cache/stache/indexes/terms\n\
 mkdir -p /var/www/html/cache/stache/indexes/assets\n\
 mkdir -p /var/www/html/cache/stache/indexes/navigations\n\
@@ -103,8 +101,9 @@ mkdir -p /var/www/html/storage/logs\n\
 mkdir -p /var/www/html/storage/statamic/stache-locks\n\
 mkdir -p /var/www/html/storage/statamic/file-locks\n\
 mkdir -p /var/www/html/bootstrap/cache\n\
-chmod -R 0777 /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/cache\n\
-chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/cache\n' > /fix-permissions.sh && chmod +x /fix-permissions.sh
+chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/cache\n\
+chmod -R 777 /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/cache\n\
+' > /fix-permissions.sh && chmod +x /fix-permissions.sh
 
 # Create supervisor config with permission fix as a startup event
 RUN echo '[supervisord]\n\
@@ -125,15 +124,21 @@ stderr_logfile_maxbytes=0\n\
 command=/usr/local/sbin/php-fpm\n\
 autostart=true\n\
 autorestart=true\n\
-startretries=3\n\
 priority=10\n\
+stdout_logfile=/dev/stdout\n\
+stdout_logfile_maxbytes=0\n\
+stderr_logfile=/dev/stderr\n\
+stderr_logfile_maxbytes=0\n\
 \n\
 [program:nginx]\n\
 command=/usr/sbin/nginx -g "daemon off;"\n\
 autostart=true\n\
 autorestart=true\n\
-startretries=3\n\
-priority=10' > /etc/supervisor/conf.d/supervisord.conf
+priority=10\n\
+stdout_logfile=/dev/stdout\n\
+stdout_logfile_maxbytes=0\n\
+stderr_logfile=/dev/stderr\n\
+stderr_logfile_maxbytes=0' > /etc/supervisor/conf.d/supervisord.conf
 
 # ============================================
 # STAGE 2: Install dependencies (cached if composer.lock unchanged)
@@ -161,11 +166,10 @@ COPY --from=deps /var/www/html/vendor ./vendor
 # Copy application files
 COPY . .
 
-# Ensure cache directory exists with proper structure (including sessions)
+# Ensure cache directory exists with proper structure (in case .dockerignore excluded it)
 RUN mkdir -p cache/stache/indexes/global-variables \
     cache/stache/indexes/collections \
     cache/stache/indexes/entries \
-    cache/stache/indexes/entries/sessions \
     cache/stache/indexes/terms \
     cache/stache/indexes/assets \
     cache/stache/indexes/navigations \
@@ -187,7 +191,6 @@ RUN mkdir -p storage/framework/cache \
     cache/stache/indexes/global-variables \
     cache/stache/indexes/collections \
     cache/stache/indexes/entries \
-    cache/stache/indexes/entries/sessions \
     cache/stache/indexes/terms \
     cache/stache/indexes/assets \
     cache/stache/indexes/navigations \
@@ -209,17 +212,16 @@ RUN rm -rf /var/www/html/cache/* && \
     rm -rf /var/www/html/storage/framework/cache/data/* && \
     rm -rf /var/www/html/storage/logs/*
 
-# Recreate directories and set permissions again after cleanup (include sessions)
+# Recreate directories and set permissions again after cleanup
 RUN mkdir -p cache/stache/indexes/global-variables \
     cache/stache/indexes/collections \
     cache/stache/indexes/entries \
-    cache/stache/indexes/entries/sessions \
     cache/stache/indexes/terms \
     cache/stache/indexes/assets \
     cache/stache/indexes/navigations \
     cache/stache/indexes/taxonomies && \
     chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/cache && \
-    chmod -R 0777 /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/cache
+    chmod -R 777 /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/cache
 
 # Optimize Laravel (skip if no .env, use || true)
 RUN php artisan config:cache || true && \
@@ -236,13 +238,15 @@ RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cac
 RUN echo '#!/bin/sh\n\
 set -e\n\
 \n\
-echo "=== Startup permission fix ==="\n\
+echo "=== Starting permission fix and directory creation ==="\n\
 \n\
-# Create required cache dirs (incl. entries/sessions)\n\
+# Remove any existing cache content that might have wrong permissions\n\
+rm -rf /var/www/html/cache/stache/indexes/* 2>/dev/null || true\n\
+\n\
+# Create all required cache directories\n\
 mkdir -p /var/www/html/cache/stache/indexes/global-variables\n\
 mkdir -p /var/www/html/cache/stache/indexes/collections\n\
 mkdir -p /var/www/html/cache/stache/indexes/entries\n\
-mkdir -p /var/www/html/cache/stache/indexes/entries/sessions\n\
 mkdir -p /var/www/html/cache/stache/indexes/terms\n\
 mkdir -p /var/www/html/cache/stache/indexes/assets\n\
 mkdir -p /var/www/html/cache/stache/indexes/navigations\n\
@@ -256,29 +260,29 @@ mkdir -p /var/www/html/storage/statamic/stache-locks\n\
 mkdir -p /var/www/html/storage/statamic/file-locks\n\
 mkdir -p /var/www/html/bootstrap/cache\n\
 \n\
-# Fix perms consistently\n\
-chmod -R 0777 /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/cache\n\
-chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/cache\n\
+# Set ownership (run as root, so this works)\n\
+chown -R www-data:www-data /var/www/html/storage\n\
+chown -R www-data:www-data /var/www/html/bootstrap/cache\n\
+chown -R www-data:www-data /var/www/html/cache\n\
 \n\
-# Laravel/Statamic maintenance (run after perms)\n\
-php artisan migrate --force || true\n\
-php artisan optimize:clear || true\n\
-php artisan optimize || true\n\
-php artisan statamic:stache:clear || true\n\
-php artisan statamic:stache:warm || true\n\
+# Set permissions - make everything writable\n\
+chmod -R 0777 /var/www/html/storage\n\
+chmod -R 0777 /var/www/html/bootstrap/cache  \n\
+chmod -R 0777 /var/www/html/cache\n\
 \n\
-# Ensure problematic Statamic path exists and is writable\n\
-mkdir -p /var/www/html/cache/stache/indexes/entries/sessions/_indexes\n\
-chown -R www-data:www-data /var/www/html/cache /var/www/html/storage /var/www/html/bootstrap/cache\n\
-chmod -R 0777 /var/www/html/cache /var/www/html/storage /var/www/html/bootstrap/cache\n\
+# Ensure all directories are executable/traversable\n\
 find /var/www/html/cache -type d -exec chmod 0777 {} \\;\n\
-find /var/www/html/cache -type f -exec chmod 0666 {} \\;\n\
+find /var/www/html/storage -type d -exec chmod 0777 {} \\;\n\
+find /var/www/html/bootstrap/cache -type d -exec chmod 0777 {} \\;\n\
 \n\
-# Start services under supervisord\n\
-exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf\n' > /start.sh && chmod +x /start.sh
+echo "=== Permissions fixed, starting services ==="\n\
+\n\
+# Start services\n\
+exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf\n\
+' > /start.sh && chmod +x /start.sh
 
 EXPOSE 80
 
-# Ensure /start.sh runs
+# Override the default entrypoint to ensure /start.sh runs
 ENTRYPOINT []
 CMD ["/start.sh"]
