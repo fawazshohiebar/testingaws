@@ -131,11 +131,13 @@ COPY --from=deps /var/www/html/vendor ./vendor
 # Copy application files
 COPY . .
 
-# Create necessary directories
+# Create necessary directories (including Statamic-specific)
 RUN mkdir -p storage/framework/cache \
     storage/framework/sessions \
     storage/framework/views \
     storage/logs \
+    storage/statamic/stache-locks \
+    storage/statamic/file-locks \
     bootstrap/cache \
     cache
 
