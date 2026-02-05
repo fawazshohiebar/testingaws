@@ -138,12 +138,15 @@ RUN mkdir -p storage/framework/cache \
     storage/logs \
     storage/statamic/stache-locks \
     storage/statamic/file-locks \
+    storage/statamic \
     bootstrap/cache \
     cache/stache/indexes
 
-# Set permissions BEFORE artisan commands
+# Set full permissions on all writable directories
 RUN chown -R www-data:www-data /var/www/html && \
-    chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/cache && \
+    chmod -R 777 /var/www/html/storage && \
+    chmod -R 777 /var/www/html/bootstrap/cache && \
+    chmod -R 777 /var/www/html/cache && \
     chmod -R 755 /var/www/html/public
 
 # Optimize Laravel (skip if no .env, use || true)
@@ -151,9 +154,9 @@ RUN php artisan config:cache || true && \
     php artisan route:cache || true && \
     php artisan view:cache || true
 
-# Final permissions fix (in case artisan created files as root)
-RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/cache && \
-    chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/cache
+# Final permissions fix (ensure everything is writable)
+RUN chown -R www-data:www-data /var/www/html && \
+    chmod -R 777 /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/cache
 
 EXPOSE 80
 
