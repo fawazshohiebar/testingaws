@@ -140,7 +140,13 @@ RUN mkdir -p storage/framework/cache \
     storage/statamic/file-locks \
     storage/statamic \
     bootstrap/cache \
-    cache/stache/indexes
+    cache/stache/indexes/global-variables \
+    cache/stache/indexes/collections \
+    cache/stache/indexes/entries \
+    cache/stache/indexes/terms \
+    cache/stache/indexes/assets \
+    cache/stache/indexes/navigations \
+    cache/stache/indexes/taxonomies
 
 # Set full permissions on all writable directories
 RUN chown -R www-data:www-data /var/www/html && \
@@ -158,6 +164,13 @@ RUN php artisan config:cache || true && \
 RUN chown -R www-data:www-data /var/www/html && \
     chmod -R 777 /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/cache
 
+# Create startup script that fixes permissions at runtime
+RUN echo '#!/bin/sh\n\
+chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/cache 2>/dev/null || true\n\
+chmod -R 777 /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/cache 2>/dev/null || true\n\
+exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf\n\
+' > /start.sh && chmod +x /start.sh
+
 EXPOSE 80
 
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+CMD ["/start.sh"]
