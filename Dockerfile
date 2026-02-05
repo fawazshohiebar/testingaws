@@ -28,6 +28,16 @@ RUN docker-php-ext-install \
 # Install Redis extension
 RUN pecl install redis && docker-php-ext-enable redis
 
+# Configure PHP-FPM to run as www-data
+RUN echo 'user = www-data\n\
+group = www-data\n\
+listen = 127.0.0.1:9000\n\
+pm = dynamic\n\
+pm.max_children = 20\n\
+pm.start_servers = 2\n\
+pm.min_spare_servers = 1\n\
+pm.max_spare_servers = 3' > /usr/local/etc/php-fpm.d/www.conf
+
 # Copy Composer from official image
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
@@ -37,32 +47,63 @@ WORKDIR /var/www/html
 # Copy composer files
 COPY composer.json composer.lock ./
 
+# Install PHP dependencies (ignore platform reqs during build)
+RUN composer install --no-dev --prefer-dist --no-progress --no-interaction --optimize-autoloader --no-scripts
 
 # Copy application files
 COPY . .
 
-# Install PHP dependencies (ignore platform reqs during build)
-RUN composer install --no-dev --prefer-dist --no-progress --no-interaction --optimize-autoloader
+# Run composer scripts after copying all files
+RUN composer dump-autoload --optimize
 
-# Set permissions
-RUN chown -R www-data:www-data /var/www/html \
-    && chmod -R 775 storage bootstrap/cache
+# Create necessary directories and set permissions
+RUN mkdir -p storage/framework/cache \
+    storage/framework/sessions \
+    storage/framework/views \
+    storage/logs \
+    bootstrap/cache \
+    && chown -R www-data:www-data /var/www/html \
+    && chmod -R 775 storage bootstrap/cache \
+    && chmod -R 775 /var/www/html/public
 
 # Create nginx config
-RUN echo 'server {\n\
-    listen 80;\n\
-    root /var/www/html/public;\n\
-    index index.php index.html;\n\
-    location / {\n\
-        try_files $uri $uri/ /index.php?$query_string;\n\
+RUN echo 'user www-data;\n\
+worker_processes auto;\n\
+pid /run/nginx.pid;\n\
+\n\
+events {\n\
+    worker_connections 1024;\n\
+}\n\
+\n\
+http {\n\
+    include /etc/nginx/mime.types;\n\
+    default_type application/octet-stream;\n\
+    sendfile on;\n\
+    keepalive_timeout 65;\n\
+    \n\
+    server {\n\
+        listen 80;\n\
+        root /var/www/html/public;\n\
+        index index.php index.html;\n\
+        \n\
+        client_max_body_size 100M;\n\
+        \n\
+        location / {\n\
+            try_files $uri $uri/ /index.php?$query_string;\n\
+        }\n\
+        \n\
+        location ~ \.php$ {\n\
+            fastcgi_pass 127.0.0.1:9000;\n\
+            fastcgi_index index.php;\n\
+            fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;\n\
+            include fastcgi_params;\n\
+        }\n\
+        \n\
+        location ~ /\.(?!well-known).* {\n\
+            deny all;\n\
+        }\n\
     }\n\
-    location ~ \.php$ {\n\
-        fastcgi_pass 127.0.0.1:9000;\n\
-        fastcgi_index index.php;\n\
-        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;\n\
-        include fastcgi_params;\n\
-    }\n\
-}' > /etc/nginx/sites-available/default
+}' > /etc/nginx/nginx.conf
 
 # Create supervisor config for PHP-FPM, Nginx, and Horizon
 RUN echo '[supervisord]\n\
