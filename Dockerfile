@@ -121,7 +121,8 @@ stderr_logfile=/dev/stderr\n\
 stderr_logfile_maxbytes=0\n\
 \n\
 [program:php-fpm]\n\
-command=/usr/local/sbin/php-fpm\n\
+command=/usr/local/sbin/php-fpm --nodaemonize\n\
+user=www-data\n\
 autostart=true\n\
 autorestart=true\n\
 priority=10\n\
@@ -132,6 +133,7 @@ stderr_logfile_maxbytes=0\n\
 \n\
 [program:nginx]\n\
 command=/usr/sbin/nginx -g "daemon off;"\n\
+user=www-data\n\
 autostart=true\n\
 autorestart=true\n\
 priority=10\n\
